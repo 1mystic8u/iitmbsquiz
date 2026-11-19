@@ -1,0 +1,124 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deep Learning Quiz 2 · 2026 Term 1 — Study guide</title><link rel="stylesheet" href="../assets/style.css"><link rel="stylesheet" href="../assets/guide.css"></head><body class="dl guide">
+<div class="bar"><a class="btn" href="../index.html">← All papers</a><a class="btn" href="../papers/cs3004_2026T1.html">Question paper</a><h1>Deep Learning Quiz 2 · 2026 Term 1 — Study guide</h1><span class="sp"></span>
+<label><input type="checkbox" id="les" checked> Lessons</label><label><input type="checkbox" id="trc" checked> Full traces</label>
+<label>Print size <input type="range" id="k" min="60" max="110" value="100" step="5"><span id="kv">100%</span></label>
+<button class="btn pri" onclick="window.print()">🖨 Print A4</button></div>
+<div class="wrap"><div class="phead"><h1>Deep Learning Quiz 2 · 2026 Term 1 — Study guide</h1><div class="m">15 questions · 40 marks · worked solutions with visuals</div></div><div class="tips"><b>How to use this guide</b> — lesson first, then the worked solution, then the answer sheet.
+<ul><li><b>Time budget:</b> ≈ 1 min per mark. Shape/parameter questions ≈ 1 min each once you have the formula; numeric optimiser traces ≈ 3 min.</li>
+<li><b>Answer-sheet marks:</b> <b>✓</b> = recomputed by code and inside the official range · <b>•</b> = official key, explained by reasoning (concept question, not machine-checked).</li>
+<li><b>Order of attack:</b> write the formula once, fill a small table, then read off the answers.</li></ul></div><section class="g"><h2><span class="qr">Q1–Q4</span>Optimiser &amp; dropout concepts<small>9 marks</small></h2><details class="les" open><summary>Lesson · Optimisers &amp; learning-rate schedules</summary>
+<div class="two"><div>
+<h4>Update rules (g = ∇w, η = learning rate)</h4>
+<table class="tb"><tr><th>method</th><th>state</th><th>update</th></tr>
+<tr><td><b>Momentum</b></td><td>u = γu + η g</td><td>w ← w − u</td></tr>
+<tr><td><b>NAG</b></td><td>same, gradient taken at the look-ahead point w − γu</td><td>fewer oscillations than momentum</td></tr>
+<tr><td><b>AdaGrad</b></td><td>v = v + g²</td><td>w ← w − η g / (√v + ε)</td></tr>
+<tr><td><b>RMSProp</b></td><td>v = βv + (1−β) g²</td><td>w ← w − η g / (√v + ε)</td></tr>
+<tr><td><b>AdaDelta</b></td><td>v = βv+(1−β)g²; u = βu+(1−β)Δw²</td><td>Δw = −(√u/√v) g — <i>no η at all</i></td></tr>
+<tr><td><b>Adam</b></td><td>m = β₁m+(1−β₁)g; v = β₂v+(1−β₂)g²</td><td>w ← w − η m̂/(√v̂+ε), m̂ = m/(1−β₁ᵗ), v̂ = v/(1−β₂ᵗ)</td></tr>
+<tr><td><b>AdaMax</b></td><td>Adam with the L∞ norm: u = max(β₂u, |g|)</td><td>w ← w − η m̂ / u</td></tr>
+<tr><td><b>NAdam</b></td><td>Adam + Nesterov look-ahead</td><td></td></tr></table>
+<h4>Facts the paper keeps asking</h4>
+<ul>
+<li><b>AdaGrad</b>: v only grows ⇒ effective LR η/√v is <b>monotonically non-increasing</b> (can stay constant while g = 0). Sparse features have small accumulated v ⇒ their LR decays <b>slowly</b>; dense features decay fast.</li>
+<li><b>RMSProp</b>: v can shrink (old gradients are forgotten) ⇒ effective LR <b>can rise</b>; it is <b>not</b> guaranteed non-increasing. It can still oscillate around the minimum because the LR does not vanish; sensitive to η₀.</li>
+<li><b>Adam</b> = momentum + RMSProp. Without bias correction m, v start at 0 and are underestimated; since √v shrinks faster than m, the first steps are <b>too large</b> (m/√v ≈ 0.1 g / 0.0316|g| ≈ 3.2 for β=(0.9, 0.999)).</li>
+<li>Adaptive per-parameter LR: AdaGrad, RMSProp, AdaDelta, Adam, NAdam. <b>Not</b> adaptive: SGD, momentum, NAG (a single global η, even with decay schedules).</li>
+<li>Oscillation around the minimum: momentum, NAG (less), RMSProp, Adam. AdaGrad does not oscillate — it stalls instead.</li>
+</ul></div><div>
+<h4>Learning-rate schedules</h4>
+<ul>
+<li><b>Step / exponential decay</b>: global η shrinks on a schedule — still <i>not</i> adaptive per parameter.</li>
+<li><b>Cosine annealing with warm restarts</b>: η follows a half-cosine down, then <b>jumps back up</b>; the periodic large η helps escape sharp minima.</li>
+<li><b>Cyclical triangular</b>: η_t = η_min + (η_max−η_min)·max(0, 1 − |t/μ − 2⌊1 + t/2μ⌋ + 1|). Minimum at t = 0, 2μ, 4μ…, peak at μ, 3μ… Period = 2μ.</li>
+<li><b>Backtracking line search</b>: shrink η until the sufficient-decrease condition J(w−ηg) ≤ J(w) − c·η‖g‖² holds — take the <b>largest</b> η that passes.</li>
+</ul>
+<h4>Speed recipe for numeric traces</h4>
+<ol><li>Write the update rule once; list t, g, state, new w in a table.</li>
+<li>Check the indexing convention: the passage often starts at t = 0 with v₋₁ = 0, so "after iteration 1" may mean w₁ <i>and</i> v₁ computed with the <b>new</b> gradient.</li>
+<li>Keep 3 decimals in intermediate values, as the paper says.</li></ol>
+</div></div></details><details class="les" open><summary>Lesson · Bias–variance &amp; regularisation</summary>
+<div class="two"><div>
+<h4>Diagnosing from curves</h4>
+<table class="tb"><tr><th>picture</th><th>diagnosis</th><th>cure</th></tr>
+<tr><td>train ↓, val ≈ train, both low</td><td>good fit (low bias, low variance)</td><td>—</td></tr>
+<tr><td>train ↓↓, val turns ↑</td><td>overfitting = low bias, <b>high variance</b></td><td>more data, L2, dropout, early stopping, augmentation</td></tr>
+<tr><td>both plateau <i>high</i></td><td>underfitting = <b>high bias</b></td><td>bigger model, polynomial features, longer training</td></tr>
+<tr><td>loss <i>increases</i> with epochs</td><td>learning rate too high</td><td>lower η</td></tr></table>
+<ul><li>Bias² = (mean prediction − truth)²; Variance = mean (prediction − mean prediction)² over models trained on different samples. Test error ≈ bias² + variance + noise.</li>
+<li><b>More training data</b>: variance falls, bias stays about the same (it is set by model capacity).</li>
+<li><b>Choosing λ</b>: the value with the lowest <b>validation</b> loss (not training loss).</li>
+<li>Adding L2/L1 to an <i>under</i>-fitting model makes it worse; the fix is more capacity (extra hidden layers with non-linearity, polynomial features). A deep net <i>without</i> non-linearity is still linear.</li></ul>
+</div><div>
+<h4>Regularisers in one table</h4>
+<table class="tb"><tr><th>technique</th><th>what it does</th></tr>
+<tr><td><b>L2</b> (λ/2‖w‖²)</td><td>penalty ∝ w² ⇒ weight decay: w ← (1−ηλ)w − η∇L; minimiser w* = w_D*/(1+λ) for a symmetric quadratic. Loss with penalty ≥ plain loss.</td></tr>
+<tr><td><b>L1</b> (λ‖w‖₁)</td><td>penalty ∝ |w| ⇒ sparse weights / feature selection</td></tr>
+<tr><td><b>Dropout</b> (keep p)</td><td>training: each unit kept with prob p, <i>E[active] = n·p</i>, 2ⁿ thinned sub-networks. Test: <b>all units on</b>, outputs scaled by p (or inverted-dropout: scale by 1/p in training). Per-layer p may differ; sparsity of weights is <i>not</i> implied.</td></tr>
+<tr><td><b>Early stopping</b></td><td>stop when validation error stops decreasing and starts to rise</td></tr>
+<tr><td><b>Data augmentation / noise at input / soft targets at output</b></td><td>soft target e.g. 0.9 / 0.025…: a probabilistic (non-0/1) label</td></tr>
+<tr><td><b>Bagging</b> k models</td><td>mse = V/k + (k−1)C/k. C = V (identical models) gives V; C = 0 gives V/k; minimum at C = −V (for k = 2); k→∞ limit is C.</td></tr></table>
+<p class="sm"><b>Not</b> regularisers: activation functions, optimiser choice (Adam vs SGD).</p>
+</div></div></details><details class="les" open><summary>Lesson · Activations, gradients &amp; vanishing</summary>
+<div class="two"><div>
+<table class="tb"><tr><th>f</th><th>f′</th><th>range of f′</th><th>issues</th></tr>
+<tr><td>sigmoid σ</td><td>σ(1−σ)</td><td>(0, <b>0.25</b>]</td><td>saturates at both ends ⇒ vanishing gradient; not zero-centred ⇒ all weight updates of a layer share a sign (quadrants 1 &amp; 3)</td></tr>
+<tr><td>tanh</td><td>1−tanh²</td><td>(0, 1]</td><td>saturates both ends, zero-centred</td></tr>
+<tr><td>ReLU</td><td>1 if x&gt;0 else 0</td><td>{0, 1}</td><td>no saturation for x&gt;0, but <b>dead neurons</b> (gradient 0 for x&lt;0 ⇒ stops updating)</td></tr>
+<tr><td>Leaky ReLU</td><td>1 / α (0.01, 0.1…)</td><td>{α, 1}</td><td>small non-zero slope keeps a gradient flowing — avoids dying</td></tr>
+<tr><td>ELU</td><td>1 for x&gt;0; αeˣ for x≤0</td><td>(0, 1]</td><td>smooth, no dead zone</td></tr>
+<tr><td>Maxout</td><td>slope of the winning piece</td><td></td><td>learns its own shape, no saturation or death, 2× parameters</td></tr></table>
+</div><div>
+<h4>Reasoning shortcuts</h4>
+<ul>
+<li><b>Sigmoid with a huge |a|</b>: σ′(a) ≈ 0 ⇒ gradient flowing back through the layer is killed (vanishing). Very large weights → saturation; very small weights → also tiny signals.</li>
+<li><b>Dead network trick</b>: with all-ones weights and a negative input, a ReLU layer outputs 0, every later layer outputs 0, and the sigmoid output is σ(0) = 0.5.</li>
+<li><b>Gradient reaches W_k only if every later activation passes gradient</b>: a ReLU with a ≤ threshold, or a saturated sigmoid (σ′ &lt; 0.001 treated as 0) zeroes all earlier weight matrices.</li>
+<li>Prone to vanishing: sigmoid, tanh. Prone to dying: ReLU. Neither: Leaky ReLU, GELU, ELU, Maxout.</li>
+<li><b>Dropout and expectation</b>: the expected hidden output is p·h, so E[ŷ] is computed with each unit scaled by p (keep probability), not by the drop probability.</li>
+</ul></div></div></details><div class="solb"><h3>Question data</h3><h3>Worked solution</h3><h5>Q1 · Nesterov + adaptive moments</h5><p><b>NAdam</b> (A). Adam alone has no look-ahead.</p><h5>Q2 · Dropout facts</h5><p>The keep probability can be chosen per layer (B). It does not give sparse weights; and a unit dropped in one iteration still gets its weights updated in later iterations when it is kept (it simply has no gradient in the iteration where it was dropped).</p><h5>Q3 · Match optimisers to properties</h5><table class="tb "><thead><tr><th>algorithm</th><th>property</th></tr></thead><tbody><tr><td>1 AdaGrad</td><td>(ii) scales LR by the <b>total sum</b> of past squared gradients</td></tr><tr><td>2 RMSProp</td><td>(iii) exponentially decaying average of squared gradients</td></tr><tr><td>3 Adam</td><td>(i) momentum + RMSProp, and (iv) bias correction</td></tr><tr><td>4 AdaDelta</td><td>(v) unit-correcting update, no manual LR</td></tr></tbody></table><p>= option C.</p><h5>Q4 · First layers barely update (softmax + ReLU net)</h5><p>Dead ReLUs / vanishing gradients: use <b>Leaky ReLU</b> (A) or raise the learning rate (D). tanh also saturates; more output neurons do not help.</p><h3>Answer sheet</h3><table class="tb ans-t"><thead><tr><th>Q</th><th>asks for</th><th>answer</th><th>key</th><th>why / how</th></tr></thead><tbody><tr><td>Q1</td><td>Nesterov + adaptive moment estimation</td><td><b>A</b></td><td>•</td><td>NAdam</td></tr><tr><td>Q2</td><td>dropout statement</td><td><b>B</b></td><td>•</td><td>dropout probability may differ per layer</td></tr><tr><td>Q3</td><td>match optimisers</td><td><b>C</b></td><td>•</td><td>1-ii, 2-iii, 3-i,iv, 4-v</td></tr><tr><td>Q4</td><td>weights of early layers barely update</td><td><b>AD</b></td><td>•</td><td>Leaky ReLU, larger learning rate</td></tr></tbody></table></div></section><section class="g"><h2><span class="qr">Q5</span>Backprop through ReLU → linear<small>4 marks</small></h2><details class="les" open><summary>Lesson · Backprop through conv, pooling &amp; small nets</summary>
+<div class="two"><div>
+<h4>Gradient routing rules</h4>
+<ul>
+<li><b>Linear/sum</b> (ŷ = Σ elements): gradient 1 to every element.</li>
+<li><b>Max-pool</b>: the whole gradient goes to the <b>argmax</b> element of each window; all others get 0 (if the max is in another window cell, the answer for “H₀₀” is 0, not 1).</li>
+<li><b>Average-pool</b> (k×k): every element of the window gets <b>1/k²</b> of the upstream gradient.</li>
+<li><b>ReLU</b>: pass the gradient where the pre-activation &gt; 0, block it elsewhere. <b>Sigmoid</b>: multiply by σ′ = σ(1−σ).</li>
+<li><b>Conv weight</b> w_ab: ∂L/∂w_ab = Σ over output cells (i,j) of (∂L/∂o_ij)·(active?)·X[i+a, j+b]. Weights that only ever meet zero pixels (or dead ReLU cells) get gradient 0.</li>
+<li><b>Chain of weights</b> ŷ = ∏ wᵢ·x ⇒ ∂ŷ/∂w₁ = ŷ / w₁ and ∂L/∂w₁ = (ŷ − y)·∂ŷ/∂w₁ (check ReLU alive).</li>
+</ul></div><div>
+<h4>Squared / cross-entropy loss recipes</h4>
+<ul><li>L = ½(ŷ − y)² ⇒ ∂L/∂ŷ = ŷ − y. L = (ŷ−y)² ⇒ 2(ŷ−y).</li>
+<li>Softmax + cross-entropy: ∂L/∂z = ŷ − y. Cross-entropy with a <b>soft</b> label: L = −Σ y_noise,i · ln ŷ_i.</li>
+<li>SGD step: w ← w − η ∂L/∂w. L2 term adds λw to the gradient (weight decay).</li>
+<li>Plan: forward pass table (pre-activation a, activation h) → backward pass multiplying local derivatives right-to-left. Always keep the indicator 𝟙(a &gt; 0) from the forward pass.</li></ul>
+<h4>Convolution naming trap</h4>
+<p class="sm">The course (and frameworks) compute “convolution” as <b>cross-correlation</b> — slide the kernel as printed, no flipping. All traces below use that convention and reproduce the official keys.</p>
+</div></div></details><div class="solb"><h3>Question data</h3><h3>Worked solution</h3><h5>Q5 · ReLU hidden unit, linear output, squared loss</h5><ul><li>h₂ is the <b>linear</b> output: h₂ = w₂h₁ + b₂ (B true, A false).</li><li>∂L/∂w₁ = (ŷ − y)·w₂·𝟙(w₁x + b₁ &gt; 0)·x ⇒ w₁ is unchanged if the ReLU is inactive (C), if w₂ = 0 (D), or if ŷ = y (F).</li><li>x &gt; 0 with w₁, b₁ &gt; 0 means the ReLU is <i>active</i>, so w₁ does change (E false).</li></ul><h3>Answer sheet</h3><table class="tb ans-t"><thead><tr><th>Q</th><th>asks for</th><th>answer</th><th>key</th><th>why / how</th></tr></thead><tbody><tr><td>Q5</td><td>true statements (B, C, D, F)</td><td><b>BCDF</b></td><td>•</td><td>∂L/∂w₁ = (ŷ−y)·w₂·𝟙(a₁&gt;0)·x</td></tr></tbody></table></div></section><section class="g"><h2><span class="qr">Q6</span>Padding and parameters<small>3 marks</small></h2><details class="les" open><summary>Lesson · CNN arithmetic: shapes, parameters, Inception</summary>
+<div class="two"><div>
+<div class="formula">output size = ⌊(W − F + 2P) / S⌋ + 1 &nbsp;&nbsp; (per spatial axis)<br>
+output depth = K (number of filters)<br>
+conv params = F·F·C_in·K (+ K biases only if the paper says so)<br>
+pool params = 0 &nbsp;&nbsp; FC params = n_in·n_out<br>
+“same” padding (S=1): P = (F−1)/2 &nbsp;→&nbsp; 7×7 needs P = 3</div>
+<ul><li><b>Parameters do not depend on</b> input width/height, stride or padding — only on kernel size, <b>input depth</b> and number of filters. A bigger image changes the <i>feature-map volume</i>, not the weights.</li>
+<li><b>Feature-map volume</b> = W × H × D of the output tensor (not params!).</li>
+<li>Max-pool 2×2, stride 2 halves each side (floor). Average-pool outputs the mean of each window.</li>
+<li>Conv vs FC: FC on an n-pixel image with m neurons costs n·m weights; a small conv layer is far cheaper because weights are shared.</li></ul>
+</div><div>
+<h4>Inception module bookkeeping</h4>
+<ul><li>Four parallel branches see the <b>same input</b>; each branch's output has the same H×W (padding chosen so), depths add: <b>concatenated depth = Σ branch depths</b>.</li>
+<li>1×1 “reduction” convs shrink depth <i>before</i> the expensive 3×3 / 5×5 — compare 3×3 on 256 channels (9·256·K) with 1×1 first (256·r + 9·r·K).</li>
+<li>Max-pool branch: 3×3, stride 1, padding 1 keeps H×W and depth; its params are 0; the following 1×1 conv does the work.</li>
+<li>For total params: do the branches one by one in a table (input depth, F, K, params) and add.</li></ul>
+<h4>ResNet</h4>
+<p>A skip connection adds the layer input to its output element-wise: y = F(x) + x. Gradients flow through the identity path, easing vanishing gradients in very deep nets.</p>
+</div></div></details><div class="solb"><h3>Question data</h3><h3>Worked solution</h3><div class="formula">C₁ (P=0): output 220×220×64 · C₂ (P=2): 224×224×64<br>params of both = 5·5·3·64 = 4800 ⇒ difference = <b>0</b></div><p>Padding changes the feature-map size, never the number of weights.</p><h3>Answer sheet</h3><table class="tb ans-t"><thead><tr><th>Q</th><th>asks for</th><th>answer</th><th>key</th><th>why / how</th></tr></thead><tbody><tr><td>Q6</td><td>parameter difference between C₁ and C₂</td><td><b>0</b></td><td>✓</td><td>padding does not affect parameters</td></tr></tbody></table></div></section><section class="g"><h2><span class="qr">Q7</span>Backtracking line search<small>3 marks</small></h2><div class="solb"><h3>Question data</h3><h3>Worked solution</h3><h5>Q7 · Largest step size satisfying J(w+) ≤ J(w) − 10η</h5><table class="tb "><thead><tr><th>η</th><th>actual ΔJ</th><th>required ΔJ ≤ −10η</th><th>passes?</th></tr></thead><tbody><tr><td>1.0</td><td>+5</td><td>-10</td><td>no</td></tr><tr><td>0.8</td><td>-4</td><td>-8</td><td>no</td></tr><tr><td>0.4</td><td>-6</td><td>-4</td><td><b style='color:#0a7a2f'>yes</b></td></tr><tr><td>0.1</td><td>-0.5</td><td>-1</td><td>no</td></tr></tbody></table><p>Largest passing η = <b>0.4</b>.</p><h3>Answer sheet</h3><table class="tb ans-t"><thead><tr><th>Q</th><th>asks for</th><th>answer</th><th>key</th><th>why / how</th></tr></thead><tbody><tr><td>Q7</td><td>backtracking step size</td><td><b>0.4</b></td><td>✓</td><td>0.4: −6 ≤ −4 ✓; 0.8: −4 ≤ −8 ✗</td></tr></tbody></table></div></section><section class="g"><h2><span class="qr">Q8–Q9</span>Bias and variance of a fitted line at x = 2<small>4 marks</small></h2><div class="solb"><h3>Question data</h3><div class="pimg"><img src="../img/cs3004_2026T1_p9-10.png" alt="question data"></div><h3>Worked solution</h3><table class="tb "><thead><tr><th>quantity</th><th>formula</th><th>value</th></tr></thead><tbody><tr><td>mean prediction f̄(2)</td><td>(1.1+0.9+1.0)/3</td><td>1</td></tr><tr><td>Bias</td><td>f̄ − y</td><td>0</td></tr><tr><td>Variance</td><td>mean (f̂ᵢ − f̄)²</td><td>0.0067</td></tr></tbody></table><h3>Answer sheet</h3><table class="tb ans-t"><thead><tr><th>Q</th><th>asks for</th><th>answer</th><th>key</th><th>why / how</th></tr></thead><tbody><tr><td>Q8</td><td>bias</td><td><b>0</b></td><td>✓</td><td>mean prediction equals truth</td></tr><tr><td>Q9</td><td>variance (4 d.p.)</td><td><b>0.0067</b></td><td>✓</td><td>(0.1² + 0.1² + 0)/3</td></tr></tbody></table></div></section><section class="g"><h2><span class="qr">Q10–Q12</span>Forward pass, softmax cross-entropy and L2<small>10 marks</small></h2><div class="solb"><h3>Question data</h3><div class="pimg"><img src="../img/cs3004_2026T1_p11-13.png" alt="question data"></div><h3>Worked solution</h3><table class="tb "><thead><tr><th>layer</th><th>computation</th><th>result</th></tr></thead><tbody><tr><td>a⁽¹⁾ = W⁽¹⁾x + b₁</td><td>[1−1+0+1, 0+1−0+0]</td><td>[1.0, 1.0]</td></tr><tr><td>h = LeakyReLU(a⁽¹⁾)</td><td>both positive ⇒ unchanged</td><td>[1.0, 1.0]</td></tr><tr><td>z = W⁽²⁾h + b₂</td><td>[1+0, 0+1+1, −1−1+1]</td><td>[1.0, 2.0, -1.0]</td></tr><tr><td>ŷ = softmax(z)</td><td>e^z / Σ e^z</td><td>[0.2595, 0.7054, 0.0351]</td></tr><tr><td>loss = −ln ŷ₂</td><td>y = [0,1,0]</td><td>0.349</td></tr></tbody></table><h5>Q11 · L2-regularised loss (λ = 0.05)</h5><p>‖w‖² = Σ W⁽¹⁾² + Σ W⁽²⁾² = 4 + 4 = 8 (biases excluded as defined). L = (λ/2)‖w‖² + ℓ = 0.025·8 + 0.3490 = <b>0.549</b>.</p><h5>Q12 · Facts</h5><ul><li>L(w) = penalty + ℓ ≥ ℓ since the penalty ≥ 0 (A).</li><li>SGD with L2: w ← (1 − ηλ)w − η∇ℓ — that is weight decay (C).</li><li>Gradient updates are not “larger” in general (B false); as λ → ∞, ‖w‖ → 0, it does <b>not</b> increase (D false).</li></ul><h3>Answer sheet</h3><table class="tb ans-t"><thead><tr><th>Q</th><th>asks for</th><th>answer</th><th>key</th><th>why / how</th></tr></thead><tbody><tr><td>Q10</td><td>forward pass loss (2 d.p.)</td><td><b>0.35</b></td><td>✓</td><td>−ln softmax(z)₂</td></tr><tr><td>Q11</td><td>regularised loss</td><td><b>0.55</b></td><td>✓</td><td>ℓ + 0.025·8</td></tr><tr><td>Q12</td><td>correct statements (A, C)</td><td><b>AC</b></td><td>•</td><td>penalty ≥ 0; L2 = weight decay</td></tr></tbody></table></div></section><section class="g"><h2><span class="qr">Q13–Q15</span>Bottleneck vs Inception module<small>7 marks</small></h2><div class="solb"><h3>Question data</h3><div class="pimg"><img src="../img/cs3004_2026T1_p14-16.png" alt="question data"></div><h3>Worked solution</h3><table class="tb "><thead><tr><th>module</th><th>layer</th><th>params</th></tr></thead><tbody><tr><td>A (serial)</td><td>1×1, 128→32</td><td>4096</td></tr><tr><td>A (serial)</td><td>3×3, 32→128</td><td>36864</td></tr><tr><td>A</td><td><b>total</b></td><td><b>40960</b></td></tr><tr><td>B (parallel)</td><td>path 1: 1×1, 128→32</td><td>4096</td></tr><tr><td>B (parallel)</td><td>path 2: 3×3, 128→128</td><td>147456</td></tr><tr><td>B</td><td><b>total</b></td><td><b>151552</b></td></tr></tbody></table><p>Module B concatenates 32 + 128 = 160 channels (matches the figure). Module A first shrinks 128 → 32 channels with a 1×1 conv, which makes the 3×3 conv 4× cheaper: a <b>bottleneck</b> (B).</p><h3>Answer sheet</h3><table class="tb ans-t"><thead><tr><th>Q</th><th>asks for</th><th>answer</th><th>key</th><th>why / how</th></tr></thead><tbody><tr><td>Q13</td><td>parameters of Module A</td><td><b>40960</b></td><td>✓</td><td>128·32 + 9·32·128</td></tr><tr><td>Q14</td><td>parameters of Module B</td><td><b>151552</b></td><td>✓</td><td>128·32 + 9·128·128</td></tr><tr><td>Q15</td><td>role of the 1×1 conv in Module A (B)</td><td><b>B</b></td><td>•</td><td>bottleneck: reduces cost of the following 3×3</td></tr></tbody></table></div></section>
+<div class="foot">Numeric answers were recomputed by code and compared with the official key (✓). Concept answers (•) follow the official key with the reasoning behind each option.</div></div>
+<script>
+const b=document.body,k=document.getElementById('k'),kv=document.getElementById('kv');
+document.getElementById('les').onchange=e=>b.classList.toggle('no-les',!e.target.checked);
+document.getElementById('trc').onchange=e=>b.classList.toggle('no-trc',!e.target.checked);
+k.oninput=()=>{b.style.setProperty('--k',k.value/100);kv.textContent=k.value+'%'};
+</script></body></html>
